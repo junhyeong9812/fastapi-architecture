@@ -1,0 +1,19 @@
+# === Core ===
+fastapi==0.129.0
+uvicorn[standard]==0.41.0
+starlette==0.52.1
+
+# === Database ===
+sqlalchemy[asyncio]==2.0.46
+asyncpg==0.31.0
+alembic==1.18.4
+
+# === Validation & Settings ===
+pydantic==2.12.5
+pydantic-settings==2.13.0
+
+# === DI ===
+dishka==1.8.0
+
+# === Logging ===
+structlog==25.5.0
