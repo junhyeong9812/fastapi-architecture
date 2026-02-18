@@ -1,19 +1,21 @@
+# 프로덕션 의존성 — 실제 서버 실행에 필요한 것만
+# 버전을 고정(pin)하여 환경 간 차이 방지
+
 # === Core ===
-fastapi==0.129.0
-uvicorn[standard]==0.41.0
-starlette==0.52.1
+fastapi==0.129.0                # 웹 프레임워크
+uvicorn[standard]==0.41.0       # ASGI 서버 (--reload로 hot reload)
 
 # === Database ===
-sqlalchemy[asyncio]==2.0.46
-asyncpg==0.31.0
-alembic==1.18.4
+sqlalchemy[asyncio]==2.0.46     # ORM (async 확장 포함)
+asyncpg==0.31.0                 # PostgreSQL async 드라이버
+alembic==1.18.4                 # DB 마이그레이션 도구
 
 # === Validation & Settings ===
-pydantic==2.12.5
-pydantic-settings==2.13.0
+pydantic==2.12.5                # 데이터 검증 (FastAPI의 핵심)
+pydantic-settings==2.13.0       # .env 파일 → 설정 객체 변환
 
 # === DI ===
-dishka==1.8.0
+dishka==1.8.0                   # DI 컨테이너 (스코프 관리, 정책 주입)
 
 # === Logging ===
-structlog==25.5.0
+structlog==25.5.0               # 구조화 로깅 (JSON 로그 지원)

@@ -1,8 +1,10 @@
-# === Dev dependencies (includes requirements.txt) ===
+# 개발/테스트용 의존성
+# -r로 프로덕션 의존성을 포함한 뒤 테스트 도구를 추가
+
 -r requirements.txt
 
 # === Testing ===
-pytest==9.0.2
-pytest-asyncio==1.3.0
-httpx==0.28.1
-aiosqlite==0.22.1
+pytest==9.0.2                   # 테스트 프레임워크
+pytest-asyncio==1.3.0           # async 테스트 지원
+httpx==0.28.1                   # 비동기 HTTP 클라이언트 (TestClient 대체)
+aiosqlite==0.22.1               # SQLite async 드라이버 (테스트에서 PostgreSQL 대신 사용)
