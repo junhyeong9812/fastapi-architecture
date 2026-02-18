@@ -233,7 +233,7 @@ pytest --cov=src/app --cov-report=html  # 커버리지
 ## 설계 문서
 
 상세 설계 (도메인 엔티티, 이벤트 정의, DI 구조, 정책 객체, 구현 Phase 등)는
-[ShopTracker_Design_Document_v2.md](./docs/ShopTracker_Design_Document_v2.md)를 참고하세요.
+[PROJECT-DESIGN.md](./docs/PROJECT-DESIGN.md)를 참고하세요.
 
 ---
 
