@@ -1,0 +1,39 @@
+# 로컬 개발환경: PostgreSQL + FastAPI 앱을 한번에 실행
+# docker compose up -d 로 시작
+
+services:
+  # --- PostgreSQL ---
+  db:
+    image: postgres:16-alpine           # 경량 Alpine 기반 PostgreSQL 16
+    environment:
+      POSTGRES_USER: shoptracker
+      POSTGRES_PASSWORD: shoptracker
+      POSTGRES_DB: shoptracker
+    ports:
+      - "5432:5432"                     # 로컬에서 직접 접속 가능 (DBeaver 등)
+    volumes:
+      - pgdata:/var/lib/postgresql/data # 컨테이너 재시작해도 데이터 유지
+    healthcheck:                        # app이 DB 준비될 때까지 대기하는 기준
+      test: ["CMD-SHELL", "pg_isready -U shoptracker"]
+      interval: 5s
+      timeout: 3s
+      retries: 5
+
+  # --- FastAPI App ---
+  app:
+    build: .                            # 현재 폴더의 Dockerfile로 빌드
+    ports:
+      - "8000:8000"
+    environment:
+      DATABASE_URL: postgresql+asyncpg://shoptracker:shoptracker@db:5432/shoptracker
+      ENV: dev
+    depends_on:
+      db:
+        condition: service_healthy      # DB healthcheck 통과 후 앱 시작
+    volumes:
+      - ./src:/app/src                  # 소스 변경 시 컨테이너 안에도 즉시 반영
+    command: uvicorn src.app.main:app --host 0.0.0.0 --port 8000 --reload
+    # --reload: 파일 변경 감지 → 자동 재시작 (Spring DevTools 역할)
+
+volumes:
+  pgdata:                               # 이름 붙은 볼륨 (docker compose down해도 유지)
