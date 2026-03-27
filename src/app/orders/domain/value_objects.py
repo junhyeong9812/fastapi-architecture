@@ -108,27 +108,3 @@ _VALID_TRANSITIONS: dict[OrderStatus, set[OrderStatus]] = {
     OrderStatus.DELIVERED: set(),                        # 종료 상태
     OrderStatus.CANCELLED: set(),                        # 종료 상태
 }
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
