@@ -16,17 +16,19 @@ from uuid import UUID, uuid4
 from app.orders.domain.value_objects import Money, OrderStatus
 from app.orders.domain.exceptions import InvalidOrderError, InvalidStatusTransition
 
+
 @dataclass
 class OrderItem:
     """주문 항목. 하나의 상품 + 수량 + 단가."""
     product_name: str
     quantity: int
-    unit_price: Money
+    unit_price: Money       # Money 값 객체 사용
 
     @property
     def subtotal(self) -> Money:
-        """소계 = 단가 x 수량. 주문 총액 계산에 사용."""
+        """소계 = 단가 × 수량. 주문 총액 계산에 사용."""
         return self.unit_price.multiply(self.quantity)
+
 
 @dataclass
 class Order:
@@ -51,28 +53,32 @@ class Order:
         DB에서 로드할 때는 검증 없이 그대로 복원해야 한다.
         새로 생성할 때만 검증이 필요하므로 별도 팩토리 메서드로 분리.
         """
+        # 규칙 1: 고객 이름 필수
         if not customer_name or not customer_name.strip():
-            raise InvalidOrderError("고객 이름이 비어있습니다.")
+            raise InvalidOrderError("고객 이름이 비어있습니다")
 
+        # 규칙 2: 최소 1개 항목
         if not items:
-            raise InvalidOrderError("주문 항목이 비어있습니다.")
+            raise InvalidOrderError("주문 항목이 비어있습니다")
 
+        # 규칙 3: 각 항목의 수량 > 0, 가격 > 0
         for item in items:
             if item.quantity <= 0:
-                raise InvalidOrderError(f"수량이 0이하입니다: {item.product_name}")
+                raise InvalidOrderError(f"수량이 0 이하입니다: {item.product_name}")
             if not item.unit_price.is_positive:
                 raise InvalidOrderError(f"가격이 0 이하입니다: {item.product_name}")
 
-        total = item[0].subtotal
+        # 총액 자동 계산: 모든 항목의 소계(subtotal) 합산
+        total = items[0].subtotal
         for item in items[1:]:
             total = total.add(item.subtotal)
 
         now = datetime.now(UTC)
         return cls(
-            id=uuid4(),
+            id=uuid4(),                     # UUID 자동 생성
             customer_name=customer_name.strip(),
             items=items,
-            status=OrderStatus.CREATED,
+            status=OrderStatus.CREATED,     # 초기 상태: CREATED
             total_amount=total,
             created_at=now,
             updated_at=now,
@@ -86,21 +92,21 @@ class Order:
         self.updated_at = datetime.now(UTC)
 
     def mark_payment_pending(self) -> None:
-        """CREATED -> PAYMENT_PENDING: 주문 생성 직후 호출."""
+        """CREATED → PAYMENT_PENDING. 주문 생성 직후 호출."""
         self._transition_to(OrderStatus.PAYMENT_PENDING)
 
     def mark_paid(self) -> None:
-        """PAYMENT_PENDING -> PAID. 결제 승인 이벤트 수신 시 호출."""
+        """PAYMENT_PENDING → PAID. 결제 승인 이벤트 수신 시 호출."""
         self._transition_to(OrderStatus.PAID)
 
     def mark_shipping(self) -> None:
-        """PAID -> SHIPPING. 배송 생성 이벤트 수신 시 호출"""
-        self._transition_t0(OrderStatus.SHIPPING)
+        """PAID → SHIPPING. 배송 생성 이벤트 수신 시 호출."""
+        self._transition_to(OrderStatus.SHIPPING)
 
     def mark_delivered(self) -> None:
-        """SHIPPiNG -> DELIVERED. 배송 완료 이벤트 수신 시 호출."""
+        """SHIPPING → DELIVERED. 배송 완료 이벤트 수신 시 호출."""
         self._transition_to(OrderStatus.DELIVERED)
 
     def cancel(self) -> None:
-        """ -> CANCELLED, CREATED 또는 PAYMENT_PENDING에서만 가능."""
+        """→ CANCELLED. CREATED 또는 PAYMENT_PENDING에서만 가능."""
         self._transition_to(OrderStatus.CANCELLED)
