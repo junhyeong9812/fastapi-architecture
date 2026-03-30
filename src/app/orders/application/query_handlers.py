@@ -15,6 +15,7 @@ from app.orders.domain.exceptions import OrderNotFoundError
 from app.orders.domain.interfaces import OrderReadRepositoryProtocol
 from app.orders.application.queries import GetOrderQuery, ListOrdersQuery
 
+
 @dataclass
 class PaginatedOrders:
     """페이지네이션된 주문 목록 결과."""
@@ -23,10 +24,11 @@ class PaginatedOrders:
     page: int
     size: int
 
+
 class GetOrderHandler:
     """단건 주문 조회."""
     def __init__(self, repo: OrderReadRepositoryProtocol) -> None:
-        self._repo = repo
+        self._repo = repo       # ★ EventBus 없음!
 
     async def handle(self, query: GetOrderQuery) -> Order:
         order = await self._repo.find_by_id(UUID(query.order_id))
@@ -34,10 +36,11 @@ class GetOrderHandler:
             raise OrderNotFoundError(query.order_id)
         return order
 
+
 class ListOrdersHandler:
     """주문 목록 조회 (페이지네이션)."""
     def __init__(self, repo: OrderReadRepositoryProtocol) -> None:
-        self._repo = repo
+        self._repo = repo       # ★ EventBus 없음!
 
     async def handle(self, query: ListOrdersQuery) -> PaginatedOrders:
         items = await self._repo.list_orders(
