@@ -12,18 +12,21 @@ frozen=True: 생성 후 변경 불가 (안전한 데이터 전달).
 from dataclasses import dataclass
 from decimal import Decimal
 
+
 @dataclass(frozen=True)
 class OrderItemDTO:
     """주문 항목 데이터. Router에서 Handler로 전달될 때 사용."""
     product_name: str
     quantity: int
-    unit_price: Decimal
+    unit_price: Decimal     # Pydantic의 float → Decimal 변환은 Router에서
+
 
 @dataclass(frozen=True)
 class CreateOrderCommand:
     """주문 생성 명령."""
     customer_name: str
     items: list[OrderItemDTO]
+
 
 @dataclass(frozen=True)
 class CancelOrderCommand:
