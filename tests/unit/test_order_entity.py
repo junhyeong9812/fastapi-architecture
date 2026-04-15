@@ -9,7 +9,7 @@ import fastapi, import sqlalchemy가 없다.
 from decimal import Decimal
 import pytest
 from app.orders.domain.entities import Order, OrderItem
-from app.orders.domain.value_objects import Money, OrderStatus
+from app.shared.value_objects import Money, OrderStatus
 from app.orders.domain.exceptions import (
     InvalidOrderError,
     InvalidStatusTransition,

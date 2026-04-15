@@ -8,12 +8,12 @@ Order.create()는 팩토리 메서드 패턴.
 __init__ 대신 create()를 사용하여 생성 규칙(검증)을 강제한다.
 """
 
-from dataclasses import dataclass, field
+from dataclasses import dataclass
 from datetime import datetime, UTC
-from decimal import Decimal
 from uuid import UUID, uuid4
 
-from app.orders.domain.value_objects import Money, OrderStatus
+from app.shared.value_objects import Money
+from app.orders.domain.value_objects import  OrderStatus
 from app.orders.domain.exceptions import InvalidOrderError, InvalidStatusTransition
 
 

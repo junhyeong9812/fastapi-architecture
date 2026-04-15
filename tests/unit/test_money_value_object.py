@@ -7,7 +7,7 @@
 
 from decimal import Decimal
 import pytest
-from app.orders.domain.value_objects import Money
+from app.shared.value_objects import Money
 
 class TestMoneyCreation:
     """Money 생성 테스트."""

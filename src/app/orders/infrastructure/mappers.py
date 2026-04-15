@@ -14,7 +14,8 @@ Decimal은 정밀하고, float는 DB에 저장하기 쉽다.
 from decimal import Decimal
 from uuid import UUID
 from app.orders.domain.entities import Order, OrderItem
-from app.orders.domain.value_objects import Money, OrderStatus
+from app.shared.value_objects import Money
+from app.orders.domain.value_objects import  OrderStatus
 from app.orders.infrastructure.models import OrderModel, OrderItemModel
 
 

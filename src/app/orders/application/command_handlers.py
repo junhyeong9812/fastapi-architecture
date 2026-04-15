@@ -11,7 +11,7 @@ from datetime import datetime, UTC
 from uuid import UUID
 
 from app.orders.domain.entities import Order, OrderItem
-from app.orders.domain.value_objects import Money
+from app.shared.value_objects import Money
 from app.orders.domain.interfaces import OrderRepositoryProtocol
 from app.shared.event_bus import EventBus
 from app.shared.events import OrderCreatedEvent, OrderCancelledEvent
