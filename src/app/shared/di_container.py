@@ -1,6 +1,9 @@
 from dishka import Provider, Scope, make_async_container, provide, AsyncContainer
 from sqlalchemy.ext.asyncio import AsyncEngine, AsyncSession, async_sessionmaker
+from decimal import Decimal
+from fastapi import Request
 
+from app.shared.subscription_context import SubscriptionContext
 from app.shared.config import AppConfig, get_config
 from app.shared.database import create_engine, create_session_factory
 from app.shared.event_bus import EventBus, InMemoryEventBus
@@ -19,6 +22,13 @@ from app.subscriptions.application.handlers import (
     CreateSubscriptionHandler, CancelSubscriptionHandler,
     GetSubscriptionHandler, GetActiveSubscriptionHandler,
 )
+from app.payments.infrastructure.repository import SQLAlchemyPaymentRepository
+from app.payments.infrastructure.fake_gateway import FakePaymentGateway
+from app.payments.domain.policies import (
+    NoDiscountPolicy, SubscriptionDiscountPolicy,
+)
+from app.payments.domain.interfaces import DiscountPolicy
+from app.payments.application.command_handlers import ProcessPaymentHandler
 
 class AppProvider(Provider):
 
@@ -106,7 +116,75 @@ class SubscriptionsProvider(Provider):
     ) -> GetActiveSubscriptionHandler:
         return GetActiveSubscriptionHandler(repo)
 
+class SubscriptionContextProvider(Provider):
+
+    @provide(scope=Scope.REQUEST)
+    async def subscription_context(
+        self,
+        request: Request,
+        repo: SQLAlchemySubscriptionRepository,
+    ) -> SubscriptionContext:
+        # 헤더가 없으면 guest 사용자로 처리
+        customer_name = request.headers.get("X-Customer-Name", "guest")
+
+        sub = await repo.find_active_by_customer(customer_name)
+        if sub is None or not sub.is_active():
+            return SubscriptionContext.guest(customer_name)
+
+        return SubscriptionContext(
+            customer_name=customer_name,
+            tier=sub.tier.value,    # "basic" / "premium"
+            is_active=True,
+        )
+
+class PaymentsProvider(Provider):
+
+    @provide(scope=Scope.REQUEST)
+    def payment_repository(
+        self, session: AsyncSession,
+    ) -> SQLAlchemyPaymentRepository:
+        return SQLAlchemyPaymentRepository(session)
+
+    @provide(scope=Scope.REQUEST)
+    def payment_gateway(self) -> FakePaymentGateway:
+        """PG. 나중에 토스/이니시스 등 실제 PG로 교체 시 이 한 줄만 변경."""
+        return FakePaymentGateway()
+
+    @provide(scope=Scope.REQUEST)
+    def discount_policy(
+        self, sub_ctx: SubscriptionContext,
+    ) -> DiscountPolicy:
+
+        match sub_ctx.tier:
+            case "premium":
+                return SubscriptionDiscountPolicy(
+                    rate=Decimal("0.10"),
+                    discount_type="premium_subscription",
+                )
+            case "basic":
+                return SubscriptionDiscountPolicy(
+                    rate=Decimal("0.05"),
+                    discount_type="basic_subscription",
+                )
+            case _:
+                # "none" 또는 알 수 없는 tier → 할인 없음
+                return NoDiscountPolicy()
+
+    @provide(scope=Scope.REQUEST)
+    def process_payment_handler(
+        self,
+        repo: SQLAlchemyPaymentRepository,
+        gateway: FakePaymentGateway,
+        discount_policy: DiscountPolicy,
+        event_bus: EventBus,
+    ) -> ProcessPaymentHandler:
+        return ProcessPaymentHandler(repo, gateway, discount_policy, event_bus)
+
 def create_container() -> AsyncContainer:
     return make_async_container(
-        AppProvider(), OrdersProvider(), SubscriptionsProvider(),
+        AppProvider(),
+        OrdersProvider(),
+        SubscriptionsProvider(),
+        SubscriptionContextProvider(),
+        PaymentsProvider(),
     )
