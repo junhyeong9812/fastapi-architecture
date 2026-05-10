@@ -39,6 +39,9 @@ from app.shipping.domain.policies import (
 from app.shipping.domain.interfaces import ShippingFeePolicy
 from app.shipping.application.command_handlers import UpdateShipmentStatusHandler
 
+from app.tracking.infrastructure.repository import SQLAlchemyTrackingRepository
+from app.tracking.application.query_handlers import GetOrderTrackingHandler
+
 class AppProvider(Provider):
 
     @provide(scope=Scope.APP)
@@ -234,6 +237,27 @@ class ShippingProvider(Provider):
     ) -> UpdateShipmentStatusHandler:
         return UpdateShipmentStatusHandler(repo, event_bus)
 
+class TrackingProvider(Provider):
+    """Tracking 모듈 의존성.
+
+    ★ 정책 주입 패턴이 적용되지 않는 이유:
+    Tracking은 도메인 결정(할인율/배송비 등)을 하지 않는다.
+    단지 발생한 이벤트를 받아 적는다.
+    그래서 PaymentsProvider/ShippingProvider 같은 match 분기가 없다.
+    """
+
+    @provide(scope=Scope.REQUEST)
+    def tracking_repository(
+        self, session: AsyncSession,
+    ) -> SQLAlchemyTrackingRepository:
+        return SQLAlchemyTrackingRepository(session)
+
+    @provide(scope=Scope.REQUEST)
+    def get_tracking_handler(
+        self, repo: SQLAlchemyTrackingRepository,
+    ) -> GetOrderTrackingHandler:
+        return GetOrderTrackingHandler(repo)
+
 def create_container() -> AsyncContainer:
     return make_async_container(
         AppProvider(),
@@ -242,4 +266,5 @@ def create_container() -> AsyncContainer:
         SubscriptionContextProvider(),
         PaymentsProvider(),
         ShippingProvider(),
+        TrackingProvider(),
     )
