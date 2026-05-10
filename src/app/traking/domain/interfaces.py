@@ -1,0 +1,9 @@
+from typing import Protocol
+from uuid import UUID
+from app.tracking.domain.entities import OrderTracking
+
+
+class TrackingRepositoryProtocol(Protocol):
+    async def save(self, tracking: OrderTracking) -> None: ...
+    async def find_by_order_id(self, order_id: UUID) -> OrderTracking | None: ...
+    async def update(self, tracking: OrderTracking) -> None: ...
