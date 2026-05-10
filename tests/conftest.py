@@ -66,6 +66,18 @@ from app.shipping.application.event_handlers import (
 )
 from app.shipping.presentation.router import router as shipping_router
 
+from app.tracking.infrastructure.models import OrderTrackingModel  # noqa
+from app.tracking.infrastructure.repository import SQLAlchemyTrackingRepository
+from app.tracking.application.query_handlers import GetOrderTrackingHandler
+from app.tracking.application.event_handlers import (
+    handle_order_created as tracking_handle_order_created,
+    handle_payment_approved as tracking_handle_payment_approved,
+    handle_payment_rejected as tracking_handle_payment_rejected,
+    handle_shipment_created as tracking_handle_shipment_created,
+    handle_shipment_status_changed as tracking_handle_shipment_status_changed,
+)
+from app.tracking.presentation.router import router as tracking_router
+
 
 @pytest.fixture
 async def async_engine():
@@ -236,12 +248,25 @@ async def async_client(session_factory, event_bus):
         ) -> UpdateShipmentStatusHandler:
             return UpdateShipmentStatusHandler(repo, eb)
 
+        @provide(scope=Scope.REQUEST)
+        def tracking_repo(
+                self, session: AsyncSession,
+        ) -> SQLAlchemyTrackingRepository:
+            return SQLAlchemyTrackingRepository(session)
+
+        @provide(scope=Scope.REQUEST)
+        def get_tracking_handler(
+                self, repo: SQLAlchemyTrackingRepository,
+        ) -> GetOrderTrackingHandler:
+            return GetOrderTrackingHandler(repo)
+
     # 테스트용 FastAPI 앱 생성
     test_app = FastAPI()
     test_app.include_router(orders_router)
     test_app.include_router(subs_router)
     test_app.include_router(payments_router)
     test_app.include_router(shipping_router)
+    test_app.include_router(tracking_router)
 
     container = make_async_container(TestProvider())
     setup_dishka(container, test_app)
@@ -280,12 +305,44 @@ async def async_client(session_factory, event_bus):
             repo = await rc.get(SQLAlchemyOrderRepository)
             await orders_handle_shipment_delivered(event, repo)
 
+    async def on_order_created_tracking(event: OrderCreatedEvent) -> None:
+        async with container() as rc:
+            repo = await rc.get(SQLAlchemyTrackingRepository)
+            await tracking_handle_order_created(event, repo)
+
+    async def on_payment_approved_tracking(event: PaymentApprovedEvent) -> None:
+        async with container() as rc:
+            repo = await rc.get(SQLAlchemyTrackingRepository)
+            await tracking_handle_payment_approved(event, repo)
+
+    async def on_payment_rejected_tracking(event: PaymentRejectedEvent) -> None:
+        async with container() as rc:
+            repo = await rc.get(SQLAlchemyTrackingRepository)
+            await tracking_handle_payment_rejected(event, repo)
+
+    async def on_shipment_created_tracking(event: ShipmentCreatedEvent) -> None:
+        async with container() as rc:
+            repo = await rc.get(SQLAlchemyTrackingRepository)
+            await tracking_handle_shipment_created(event, repo)
+
+    async def on_shipment_status_changed_tracking(
+            event: ShipmentStatusChangedEvent,
+    ) -> None:
+        async with container() as rc:
+            repo = await rc.get(SQLAlchemyTrackingRepository)
+            await tracking_handle_shipment_status_changed(event, repo)
+
     event_bus.subscribe(OrderCreatedEvent, on_order_created)
     event_bus.subscribe(PaymentApprovedEvent, on_payment_approved)
     event_bus.subscribe(PaymentApprovedEvent, on_payment_approved_shipping)
     event_bus.subscribe(PaymentRejectedEvent, on_payment_rejected)
     event_bus.subscribe(ShipmentCreatedEvent, on_shipment_created)
     event_bus.subscribe(ShipmentStatusChangedEvent, on_shipment_status_changed)
+    event_bus.subscribe(OrderCreatedEvent, on_order_created_tracking)
+    event_bus.subscribe(PaymentApprovedEvent, on_payment_approved_tracking)
+    event_bus.subscribe(PaymentRejectedEvent, on_payment_rejected_tracking)
+    event_bus.subscribe(ShipmentCreatedEvent, on_shipment_created_tracking)
+    event_bus.subscribe(ShipmentStatusChangedEvent, on_shipment_status_changed_tracking)
 
     async with AsyncClient(
         transport=ASGITransport(app=test_app),
