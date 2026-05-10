@@ -30,10 +30,21 @@ from app.orders.application.event_handlers import (
     handle_shipment_delivered as orders_handle_shipment_delivered,
 )
 
+from app.tracking.infrastructure.repository import SQLAlchemyTrackingRepository
+from app.tracking.application.event_handlers import (
+    handle_order_created as tracking_handle_order_created,
+    handle_payment_approved as tracking_handle_payment_approved,
+    handle_payment_rejected as tracking_handle_payment_rejected,
+    handle_shipment_created as tracking_handle_shipment_created,
+    handle_shipment_status_changed as tracking_handle_shipment_status_changed,
+)
+
 from app.orders.presentation.router import router as orders_router
 from app.subscriptions.presentation.router import router as subscriptions_router
 from app.payments.presentation.router import router as payments_router
 from app.shipping.presentation.router import router as shipping_router
+from app.tracking.presentation.router import router as tracking_router
+
 
 structlog.configure(
     processors=[
@@ -82,6 +93,33 @@ def register_event_handlers(event_bus: EventBus, container) -> None:
             repo = await rc.get(SQLAlchemyOrderRepository)
             await orders_handle_shipment_delivered(event, repo)
 
+    async def on_order_created_tracking(event: OrderCreatedEvent) -> None:
+        async with container() as rc:
+            repo = await rc.get(SQLAlchemyTrackingRepository)
+            await tracking_handle_order_created(event, repo)
+
+    async def on_payment_approved_tracking(event: PaymentApprovedEvent) -> None:
+        async with container() as rc:
+            repo = await rc.get(SQLAlchemyTrackingRepository)
+            await tracking_handle_payment_approved(event, repo)
+
+    async def on_payment_rejected_tracking(event: PaymentRejectedEvent) -> None:
+        async with container() as rc:
+            repo = await rc.get(SQLAlchemyTrackingRepository)
+            await tracking_handle_payment_rejected(event, repo)
+
+    async def on_shipment_created_tracking(event: ShipmentCreatedEvent) -> None:
+        async with container() as rc:
+            repo = await rc.get(SQLAlchemyTrackingRepository)
+            await tracking_handle_shipment_created(event, repo)
+
+    async def on_shipment_status_changed_tracking(
+            event: ShipmentStatusChangedEvent,
+    ) -> None:
+        async with container() as rc:
+            repo = await rc.get(SQLAlchemyTrackingRepository)
+            await tracking_handle_shipment_status_changed(event, repo)
+
     # 등록
     event_bus.subscribe(OrderCreatedEvent, on_order_created)
     event_bus.subscribe(PaymentApprovedEvent, on_payment_approved)
@@ -89,6 +127,12 @@ def register_event_handlers(event_bus: EventBus, container) -> None:
     event_bus.subscribe(PaymentRejectedEvent, on_payment_rejected)
     event_bus.subscribe(ShipmentCreatedEvent, on_shipment_created)
     event_bus.subscribe(ShipmentStatusChangedEvent, on_shipment_status_changed)
+    event_bus.subscribe(OrderCreatedEvent, on_order_created_tracking)
+    event_bus.subscribe(PaymentApprovedEvent, on_payment_approved_tracking)
+    event_bus.subscribe(PaymentRejectedEvent, on_payment_rejected_tracking)
+    event_bus.subscribe(ShipmentCreatedEvent, on_shipment_created_tracking)
+    event_bus.subscribe(
+        ShipmentStatusChangedEvent, on_shipment_status_changed_tracking)
 
 @asynccontextmanager
 async def lifespan(app: FastAPI):
