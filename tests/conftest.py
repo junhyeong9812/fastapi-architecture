@@ -12,12 +12,14 @@ from app.shared.event_bus import EventBus, InMemoryEventBus
 from app.shared.subscription_context import SubscriptionContext
 from app.shared.events import (
     OrderCreatedEvent, PaymentApprovedEvent, PaymentRejectedEvent,
+    ShipmentCreatedEvent, ShipmentStatusChangedEvent,
 )
 
 # ORM 모델 import — 테이블 생성(create_all)에 필요
 from app.orders.infrastructure.models import OrderModel, OrderItemModel  # noqa
 from app.subscriptions.infrastructure.models import SubscriptionModel  # noqa
 from app.payments.infrastructure.models import PaymentModel  # noqa
+from app.shipping.infrastructure.models import ShipmentModel  # noqa
 
 # Repository / Handler 클래스
 from app.orders.infrastructure.repository import SQLAlchemyOrderRepository
@@ -47,8 +49,22 @@ from app.payments.application.event_handlers import (
 from app.orders.application.event_handlers import (
     handle_payment_approved as orders_handle_payment_approved,
     handle_payment_rejected as orders_handle_payment_rejected,
+    handle_shipment_created as orders_handle_shipment_created,
+    handle_shipment_delivered as orders_handle_shipment_delivered,
 )
 from app.payments.presentation.router import router as payments_router
+
+# Phase 3: Shipping
+from app.shipping.infrastructure.repository import SQLAlchemyShipmentRepository
+from app.shipping.domain.policies import (
+    StandardShippingFeePolicy, BasicShippingFeePolicy, PremiumShippingFeePolicy,
+)
+from app.shipping.domain.interfaces import ShippingFeePolicy
+from app.shipping.application.command_handlers import UpdateShipmentStatusHandler
+from app.shipping.application.event_handlers import (
+    handle_payment_approved as shipping_handle_payment_approved,
+)
+from app.shipping.presentation.router import router as shipping_router
 
 
 @pytest.fixture
@@ -195,11 +211,37 @@ async def async_client(session_factory, event_bus):
         ) -> ProcessPaymentHandler:
             return ProcessPaymentHandler(repo, gateway, policy, eb)
 
+        # --- Phase 3: Shipping ---
+        @provide(scope=Scope.REQUEST)
+        def shipment_repo(self, session: AsyncSession) -> SQLAlchemyShipmentRepository:
+            return SQLAlchemyShipmentRepository(session)
+
+        @provide(scope=Scope.REQUEST)
+        def shipping_fee_policy(
+            self, sub_ctx: SubscriptionContext,
+        ) -> ShippingFeePolicy:
+            match sub_ctx.tier:
+                case "premium":
+                    return PremiumShippingFeePolicy()
+                case "basic":
+                    return BasicShippingFeePolicy()
+                case _:
+                    return StandardShippingFeePolicy()
+
+        @provide(scope=Scope.REQUEST)
+        def update_status_handler(
+            self,
+            repo: SQLAlchemyShipmentRepository,
+            eb: EventBus,
+        ) -> UpdateShipmentStatusHandler:
+            return UpdateShipmentStatusHandler(repo, eb)
+
     # 테스트용 FastAPI 앱 생성
     test_app = FastAPI()
     test_app.include_router(orders_router)
     test_app.include_router(subs_router)
     test_app.include_router(payments_router)
+    test_app.include_router(shipping_router)
 
     container = make_async_container(TestProvider())
     setup_dishka(container, test_app)
@@ -220,9 +262,30 @@ async def async_client(session_factory, event_bus):
             repo = await rc.get(SQLAlchemyOrderRepository)
             await orders_handle_payment_rejected(event, repo)
 
+    # === Phase 3: Shipping 이벤트 핸들러 ===
+    async def on_payment_approved_shipping(event: PaymentApprovedEvent) -> None:
+        async with container() as rc:
+            fee_policy = await rc.get(ShippingFeePolicy)
+            repo = await rc.get(SQLAlchemyShipmentRepository)
+            eb = await rc.get(EventBus)
+            await shipping_handle_payment_approved(event, fee_policy, repo, eb)
+
+    async def on_shipment_created(event: ShipmentCreatedEvent) -> None:
+        async with container() as rc:
+            repo = await rc.get(SQLAlchemyOrderRepository)
+            await orders_handle_shipment_created(event, repo)
+
+    async def on_shipment_status_changed(event: ShipmentStatusChangedEvent) -> None:
+        async with container() as rc:
+            repo = await rc.get(SQLAlchemyOrderRepository)
+            await orders_handle_shipment_delivered(event, repo)
+
     event_bus.subscribe(OrderCreatedEvent, on_order_created)
     event_bus.subscribe(PaymentApprovedEvent, on_payment_approved)
+    event_bus.subscribe(PaymentApprovedEvent, on_payment_approved_shipping)
     event_bus.subscribe(PaymentRejectedEvent, on_payment_rejected)
+    event_bus.subscribe(ShipmentCreatedEvent, on_shipment_created)
+    event_bus.subscribe(ShipmentStatusChangedEvent, on_shipment_status_changed)
 
     async with AsyncClient(
         transport=ASGITransport(app=test_app),

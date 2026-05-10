@@ -30,6 +30,15 @@ from app.payments.domain.policies import (
 from app.payments.domain.interfaces import DiscountPolicy
 from app.payments.application.command_handlers import ProcessPaymentHandler
 
+from app.shipping.infrastructure.repository import SQLAlchemyShipmentRepository
+from app.shipping.domain.policies import (
+    StandardShippingFeePolicy,
+    BasicShippingFeePolicy,
+    PremiumShippingFeePolicy,
+)
+from app.shipping.domain.interfaces import ShippingFeePolicy
+from app.shipping.application.command_handlers import UpdateShipmentStatusHandler
+
 class AppProvider(Provider):
 
     @provide(scope=Scope.APP)
@@ -186,6 +195,45 @@ class PaymentsProvider(Provider):
     ) -> ProcessPaymentHandler:
         return ProcessPaymentHandler(repo, gateway, discount_policy, event_bus)
 
+class ShippingProvider(Provider):
+    """Shipping 모듈 의존성.
+
+    ★ Phase 2의 PaymentsProvider와 동일한 패턴.
+    SubscriptionContext를 받아 tier에 따라 정책을 분기 주입한다.
+    """
+
+    @provide(scope=Scope.REQUEST)
+    def shipment_repository(
+        self, session: AsyncSession,
+    ) -> SQLAlchemyShipmentRepository:
+        return SQLAlchemyShipmentRepository(session)
+
+    @provide(scope=Scope.REQUEST)
+    def shipping_fee_policy(
+        self, sub_ctx: SubscriptionContext,
+    ) -> ShippingFeePolicy:
+        """★ 두 번째 정책 주입 진입점.
+
+        Premium → 항상 무료
+        Basic   → 50% 할인, 3만원↑ 무료
+        그 외    → 기본 3,000원, 5만원↑ 무료
+        """
+        match sub_ctx.tier:
+            case "premium":
+                return PremiumShippingFeePolicy()
+            case "basic":
+                return BasicShippingFeePolicy()
+            case _:
+                return StandardShippingFeePolicy()
+
+    @provide(scope=Scope.REQUEST)
+    def update_shipment_status_handler(
+        self,
+        repo: SQLAlchemyShipmentRepository,
+        event_bus: EventBus,
+    ) -> UpdateShipmentStatusHandler:
+        return UpdateShipmentStatusHandler(repo, event_bus)
+
 def create_container() -> AsyncContainer:
     return make_async_container(
         AppProvider(),
@@ -193,4 +241,5 @@ def create_container() -> AsyncContainer:
         SubscriptionsProvider(),
         SubscriptionContextProvider(),
         PaymentsProvider(),
+        ShippingProvider(),
     )
