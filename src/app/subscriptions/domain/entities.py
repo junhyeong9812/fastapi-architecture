@@ -13,7 +13,7 @@ class SubscriptionStatus(str, Enum):
     """구독 상태."""
     ACTIVE = "active"
     EXPIRED = "expired"
-    CANCELED = "canceled"
+    CANCELLED = "cancelled"
 
 class SubscriptionError(Exception):
     """구독 도메인 기본 예외."""
@@ -69,7 +69,16 @@ class Subscription:
         expires = self.expires_at
         if expires.tzinfo is None:
             expires = expires.replace(tzinfo=UTC)
-        return self.status == SubscriptionStatus.CANCELED
+        return self.status == SubscriptionStatus.ACTIVE and expires > now
 
-    def expired(self) -> None:
+    def cancel(self) -> None:
+        """구독 취소. 활성 상태에서만 가능."""
+        if self.status != SubscriptionStatus.ACTIVE:
+            raise InvalidSubscriptionError("활성 상태가 아닌 구독은 취소할 수 없습니다")
+        self.status = SubscriptionStatus.CANCELLED
+
+    def expire(self) -> None:
+        """구독 만료 처리.
+        업그레이드(Basic→Premium) 시 기존 구독을 만료시킬 때 사용.
+        """
         self.status = SubscriptionStatus.EXPIRED

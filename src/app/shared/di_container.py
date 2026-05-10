@@ -40,11 +40,11 @@ class AppProvider(Provider):
     def engine(self, config: AppConfig) -> AsyncEngine:
         return create_engine(config)
 
-    @provide(scope=Scope.App)
+    @provide(scope=Scope.APP)
     def session_factory(self, engine: AsyncEngine) -> async_sessionmaker[AsyncSession]:
         return create_session_factory(engine)
 
-    @provide(scope=Scope.App)
+    @provide(scope=Scope.APP)
     def event_bus(self) -> EventBus:
         return InMemoryEventBus()
 
@@ -71,6 +71,12 @@ class OrdersProvider(Provider):
             self, repo: SQLAlchemyOrderRepository, event_bus: EventBus
     ) -> CreateOrderHandler:
         return CreateOrderHandler(repo, event_bus)
+
+    @provide(scope=Scope.REQUEST)
+    def cancel_order_handler(
+            self, repo: SQLAlchemyOrderRepository, event_bus: EventBus
+    ) -> CancelOrderHandler:
+        return CancelOrderHandler(repo, event_bus)
 
     @provide(scope=Scope.REQUEST)
     def get_order_handler(

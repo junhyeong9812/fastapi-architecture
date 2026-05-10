@@ -27,10 +27,10 @@ class SQLAlchemySubscriptionRepository:
             select(SubscriptionModel)
             .where(SubscriptionModel.customer_name == customer_name)
             .where(SubscriptionModel.status == "active")
-            .order_by(SubscriptionModel.started_at.dec())
+            .order_by(SubscriptionModel.started_at.desc())
             .limit(1)
         )
-        result = await self._session.excute(stmt)
+        result = await self._session.execute(stmt)
         model = result.scalar_one_or_none()
         if model is None:
             return None

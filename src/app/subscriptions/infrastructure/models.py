@@ -1,7 +1,6 @@
 import uuid
 from datetime import datetime, UTC
 
-from pygments.styles import default
 from sqlalchemy import String, DateTime
 from sqlalchemy.orm import Mapped, mapped_column
 from app.shared.base_model import Base

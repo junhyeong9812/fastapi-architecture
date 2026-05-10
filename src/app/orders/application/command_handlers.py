@@ -39,7 +39,7 @@ class CreateOrderHandler:
         ]
 
         # 2. 도메인 엔티티 생성(검증은 Order.create()가 수행)
-        order = Order.create(customer_name=command.customer_name, itmes=items)
+        order = Order.create(customer_name=command.customer_name, items=items)
 
         # 3. 결제 대기 상태로 전환 (생성 즉시)
         order.mark_payment_pending()
@@ -49,7 +49,7 @@ class CreateOrderHandler:
 
         # 5. 이벤트 발행 -> 누가 수신하는지 모른다.
         # phase 2에서 Payments가 이 이벤트를 구동하여 자동 결제 시작
-        await self.event_bus.publish(
+        await self._event_bus.publish(
             OrderCreatedEvent(
                 order_id = order.id,
                 customer_name = order.customer_name,
