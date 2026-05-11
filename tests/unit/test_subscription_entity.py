@@ -78,7 +78,7 @@ class TestSubscriptionStatusChange:
     def test_expire(self):
         """구독 만료 처리. 업그레이드 시 기존 구독을 만료시킬 때 사용."""
         sub = Subscription.create(customer_name="홍길동", tier=SubscriptionTier.BASIC)
-        sub.expires()
+        sub.expire()
         assert sub.status == SubscriptionStatus.EXPIRED
 
     def test_cancel_inactive_raises(self):

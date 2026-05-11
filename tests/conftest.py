@@ -1,3 +1,5 @@
+from typing import AsyncIterable
+
 import pytest
 from decimal import Decimal
 from httpx import AsyncClient, ASGITransport
@@ -5,7 +7,7 @@ from fastapi import Request
 from sqlalchemy.ext.asyncio import (
     AsyncSession, async_sessionmaker, create_async_engine,
 )
-from dishka import make_async_container, Provider, Scope, provide
+from dishka import make_async_container, Provider, Scope, provide, from_context
 
 from app.shared.base_model import Base
 from app.shared.event_bus import EventBus, InMemoryEventBus
@@ -116,8 +118,11 @@ async def async_client(session_factory, event_bus):
     class TestProvider(Provider):
         """테스트 전용 DI Provider (Phase 1 + Phase 2)."""
 
+        # dishka 1.x: FastAPI Request는 setup_dishka가 context로 주입 → from_context로 받음
+        request = from_context(provides=Request, scope=Scope.REQUEST)
+
         @provide(scope=Scope.REQUEST)
-        async def session(self) -> AsyncSession:
+        async def session(self) -> AsyncIterable[AsyncSession]:
             async with session_factory() as session:
                 try:
                     yield session

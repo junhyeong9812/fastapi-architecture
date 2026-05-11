@@ -1,4 +1,8 @@
-from dishka import Provider, Scope, make_async_container, provide, AsyncContainer
+from typing import AsyncIterable
+
+from dishka import (
+    Provider, Scope, make_async_container, provide, from_context, AsyncContainer,
+)
 from sqlalchemy.ext.asyncio import AsyncEngine, AsyncSession, async_sessionmaker
 from decimal import Decimal
 from fastapi import Request
@@ -63,7 +67,7 @@ class AppProvider(Provider):
     @provide(scope=Scope.REQUEST)
     async def session(
             self, factory: async_sessionmaker[AsyncSession]
-    ) -> AsyncSession:
+    ) -> AsyncIterable[AsyncSession]:
         async with factory() as session:
             try:
                 yield session
@@ -135,6 +139,8 @@ class SubscriptionsProvider(Provider):
         return GetActiveSubscriptionHandler(repo)
 
 class SubscriptionContextProvider(Provider):
+    # dishka 1.x: FastAPI Request는 setup_dishka가 context로 주입 → from_context로 받음
+    request = from_context(provides=Request, scope=Scope.REQUEST)
 
     @provide(scope=Scope.REQUEST)
     async def subscription_context(

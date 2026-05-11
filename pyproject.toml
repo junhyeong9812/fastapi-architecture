@@ -19,5 +19,5 @@ where = ["src"]
 # pytest 실행 시 적용되는 설정
 [tool.pytest.ini_options]
 testpaths = ["tests"]       # 테스트 파일 위치
-asynio_mode = "auto"        # async def test_xxx를 자동으로 asyncio 테스트로 인식
-pythonpath = ["src"]        # import 시 src/를 루트로 인식ㄴ
+asyncio_mode = "auto"       # async def test_xxx를 자동으로 asyncio 테스트로 인식
+pythonpath = ["src"]        # import 시 src/를 루트로 인식
