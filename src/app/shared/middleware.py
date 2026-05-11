@@ -10,7 +10,7 @@ JSON 형태로 출력할 수 있어서 로그 분석 도구(ELK 등)와 궁합�
 """
 
 import time
-
+import uuid
 import structlog
 from starlette.middleware.base import BaseHTTPMiddleware
 from starlette.requests import Request
@@ -21,6 +21,11 @@ logger = structlog.get_logger()
 
 class LoggingMiddleware(BaseHTTPMiddleware):
     async def dispatch(self, request: Request, call_next) -> Response:
+        # 요청마다 고유 ID 생성 (로그 추적용)
+        request_id = str(uuid.uuid4())[:8]
+        structlog.contextvars.clear_contextvars()
+        structlog.contextvars.bind_contextvars(request_id=request_id)
+
         # 요청 시작 시각 기록
         start = time.perf_counter()
 

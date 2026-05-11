@@ -45,6 +45,8 @@ from app.payments.presentation.router import router as payments_router
 from app.shipping.presentation.router import router as shipping_router
 from app.tracking.presentation.router import router as tracking_router
 
+from app.shared.exception_handlers import register_exception_handlers
+
 
 structlog.configure(
     processors=[
@@ -162,6 +164,10 @@ app.include_router(orders_router)
 app.include_router(subscriptions_router)
 app.include_router(payments_router)
 app.include_router(shipping_router)
+app.include_router(tracking_router)
+
+# 예외 핸들러 추가
+register_exception_handlers(app)
 
 @app.get("/health")
 async def health():
